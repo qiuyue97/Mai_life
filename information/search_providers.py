@@ -156,7 +156,37 @@ class ApiProvider(SearchProvider):
                               parsed.model,parsed.prompt_tokens,parsed.completion_tokens,parsed.total_tokens)
 
 
-PROVIDER_STRATEGIES:tuple[type[SearchProvider],...]=(PlaywrightProvider,ApiProvider)
+class SearxngProvider(ApiProvider):
+    """自建 SearXNG：不需要 Key（填了就作为 Bearer 发送），地址允许内网。"""
+
+    @staticmethod
+    def matches(provider_type:str)->bool:
+        return provider_type=="searxng"
+
+    def validate(self,provider:Any)->str:
+        try:HttpClient.validate_url(str(provider.endpoint))
+        except HttpRequestError:return "invalid_config"
+        return ""
+
+    @staticmethod
+    def _keys(provider:Any)->list[str]:
+        return list(provider.api_keys) or [""]
+
+    def fingerprints(self,provider:Any)->list[str]:
+        return [self.service.key_fingerprint(key or "searxng") for key in self._keys(provider)]
+
+    def available(self,provider:Any,runtimes:dict[str,dict[str,Any]],now:float)->list[tuple[str,str]]:
+        result=[]
+        for key in self._keys(provider):
+            fingerprint=self.service.key_fingerprint(key or "searxng")
+            runtime=runtimes.get(fingerprint,{})
+            if str(runtime.get("status") or "healthy")=="disabled":continue
+            if float(runtime.get("cooldown_until") or 0)>now:continue
+            result.append((fingerprint,key))
+        return result
+
+
+PROVIDER_STRATEGIES:tuple[type[SearchProvider],...]=(PlaywrightProvider,SearxngProvider,ApiProvider)
 
 
 def get_provider_strategy(provider_type:str)->type[SearchProvider]:

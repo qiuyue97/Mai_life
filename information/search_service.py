@@ -29,6 +29,7 @@ _ENDPOINTS={
 _BOCHA_FRESHNESS={"day":"oneDay","week":"oneWeek","month":"oneMonth","year":"oneYear"}
 _TAVILY_FRESHNESS={"day":1,"week":7,"month":30,"year":365}
 _YOU_FRESHNESS=frozenset({"day","week","month","year"})
+_SEARXNG_FRESHNESS=frozenset({"day","week","month","year"})
 # OpenAI 兼容路线没有原生 freshness 过滤，用自然语言时间约束降级实现（至少覆盖 day 档）。
 _OPENAI_FRESHNESS_HINT={
     "day":"只返回最近 24 小时内的信息。",
@@ -184,6 +185,16 @@ class SearchService:
             endpoint=self._query_url(_ENDPOINTS[kind],params)
             response=await self.http.get(endpoint,timeout=timeout,public_only=True,
                                          headers={"X-API-Key":key,"Accept":"application/json"})
+        elif kind=="searxng":
+            # 自建 SearXNG 在内网，不走 public_only 公网校验
+            base=HttpClient.validate_url(str(provider.endpoint)).rstrip("/")
+            if not base.endswith("/search"):base=base+"/search"
+            params={"q":query,"format":"json","language":"zh-CN","safesearch":1}
+            if freshness_key in _SEARXNG_FRESHNESS:params["time_range"]=freshness_key
+            headers={"Accept":"application/json"}
+            if key:headers["Authorization"]="Bearer "+key
+            response=await self.http.get(self._query_url(base,params),timeout=timeout,
+                                         public_only=False,headers=headers)
         elif kind=="openai_responses":
             endpoint=self._custom_endpoint(str(provider.endpoint),kind)
             payload={"model":str(provider.model),"input":query,"tools":[{"type":"web_search"}]}

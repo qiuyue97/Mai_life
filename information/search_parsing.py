@@ -126,6 +126,8 @@ def parse_standard(provider_type:str,payload:Any,max_results:int)->SearchRespons
         fields=("name","url","summary")
     elif provider_type=="tavily":
         raw=payload.get("results"); fields=("title","url","content")
+    elif provider_type=="searxng":
+        raw=payload.get("results"); fields=("title","url","content")
     else:
         raw=_nested(payload,"hits","results","data.hits"); fields=("title","url","description")
     results=[]

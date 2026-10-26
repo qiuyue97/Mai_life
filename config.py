@@ -633,12 +633,13 @@ class SearchProviderProfile(PluginConfigBase):
 
     enabled: bool = Field(default=False,description="是否启用该搜索服务。",json_schema_extra=_ui(
         "启用服务","列表顺序就是跨服务降级顺序。",0,label_en="Enable Provider",hint_en="List order defines provider failover priority."))
-    provider_type: Literal["playwright","bocha","tavily","you","openai_responses","openai_chat"] = Field(
+    provider_type: Literal["playwright","bocha","tavily","you","openai_responses","openai_chat","searxng"] = Field(
         default="playwright",description="搜索服务协议。",json_schema_extra=_ui(
             "服务类型","默认 Playwright 免 Key 浏览器搜索；API 服务可作为备援。",1,
             label_en="Provider Type",hint_en="Playwright is the default keyless provider; API providers can serve as fallbacks.",
             enum_labels={"playwright":"Playwright 浏览器搜索","bocha":"博查","tavily":"Tavily","you":"You.com",
-                         "openai_responses":"自定义 Responses 联网","openai_chat":"自定义 Chat 联网"}))
+                         "openai_responses":"自定义 Responses 联网","openai_chat":"自定义 Chat 联网",
+                         "searxng":"自建 SearXNG（JSON 接口，允许内网）"}))
     browser_engine: Literal["bing","duckduckgo"] = Field(default="bing",description="Playwright 搜索引擎。",json_schema_extra=_ui(
         "浏览器搜索引擎","默认 Bing；DuckDuckGo 可作为搜索页结构变化时的浏览器备援。",2,
         label_en="Browser Engine",hint_en="Bing is default; DuckDuckGo is an alternate browser engine.",
@@ -677,6 +678,8 @@ class SearchProviderProfile(PluginConfigBase):
         if self.enabled and self.provider_type in {"openai_responses","openai_chat"}:
             if not self.endpoint:raise ValueError("启用自定义联网服务时必须填写服务地址")
             if not self.model:raise ValueError("启用自定义联网服务时必须填写模型名")
+        if self.enabled and self.provider_type=="searxng" and not self.endpoint:
+            raise ValueError("启用 SearXNG 时必须填写服务地址，例如 http://192.168.31.140:8085")
         return self
 
 
