@@ -16,6 +16,20 @@ import time
 import uuid
 from zoneinfo import ZoneInfo
 
+
+def _latest_user_message_id(session_id:str,user_id:str)->str:
+    """[patch] 从宿主消息库读取会话里该用户最近一条消息的编号；读不到返回空串。"""
+    import sqlite3
+    if not session_id or not user_id:return ""
+    try:
+        db=sqlite3.connect("file:/MaiMBot/data/MaiBot.db?mode=ro",uri=True,timeout=5)
+        try:
+            row=db.execute("select message_id from mai_messages where session_id=? and user_id=? "
+                           "order by timestamp desc limit 1",(session_id,user_id)).fetchone()
+        finally:db.close()
+    except Exception:return ""
+    return str(row[0]) if row else ""
+
 from .config import MaiLifeSettings,PLUGIN_VERSION
 from .creation import BookshelfService,CreationService
 from .core.environment import EnvironmentService
@@ -1331,7 +1345,11 @@ class MaiLifePlugin(MaiBotPlugin):
             # reply 的 msg_id 必须引用会话最近一条真实用户消息：proactive:xxx 任务编号宿主 reply 工具
             # 查不到（find_source_message_by_id 不认），报错还会被 to_display_message_id 哈希成乱码。
             runtime=self._session_runtime.get(session) or {}
-            suffix+=self._active_tasks.planner_instruction(active,str(runtime.get("message_id") or ""))
+            anchor_mid=str(runtime.get("message_id") or "")
+            if not anchor_mid:
+                user=await self._user_by_session(session)
+                anchor_mid=await asyncio.to_thread(_latest_user_message_id,session,str(user.get("user_id") or ""))
+            suffix+=self._active_tasks.planner_instruction(active,anchor_mid)
         if active and active.kind=="relay" and self._relay and self.config.social.enabled:
             suffix+=await self._relay.prompt_context(session,active.task_id)
         # 麦麦绘图联动：对话/状态触发的生活分享引导（独立 suffix，不受 _clip(4000) 截断影响）。
