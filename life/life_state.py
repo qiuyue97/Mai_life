@@ -7,6 +7,8 @@ import time
 from datetime import date, datetime
 from typing import Any
 
+from . import worldbook
+
 # 心情基线回归参数：把心情温和拉回中性偏正的基线（约 40%/天），
 # 防止纯积分器在健康日程下钉死 +1、在重负荷/少餐日程下阴跌钉死 -1。
 MOOD_BASELINE = 0.15
@@ -229,9 +231,13 @@ class LifeStateEngine:
                 topics=[str(item.get("topic") or "").strip() for item in observations if str(item.get("topic") or "").strip()]
                 if topics:group_context="白天在群里看到过这些话题："+ "、".join(topics[:8]) + "。这些可以作为梦境的模糊参考，但不要逐字复述或暴露群友身份。"
             except Exception:pass
+            dream_book=worldbook.matched_block(getattr(self.store,"data_dir",""),
+                                              str(state.get("current_activity") or "")+group_context,with_always=True)
+            dream_book=("梦里可以带一点世界书里的奇幻色彩。世界书相关设定：\n"+dream_book+"\n") if dream_book else ""
             prompt=(f"{self.bot_name}刚结束约{hours:.1f}小时睡眠。当前心情值{state.get('mood_valence',0):.2f}，"
                     f"最近生活场景是{state.get('current_activity','普通日常')}。"
                     f"{group_context}"
+                    f"{dream_book}"
                     "生成克制自然的醒后梦境，"
                     f"返回JSON：summary为40到120字摘要，fragments为最多{count}个短片段，mood为calm/warm/uneasy之一。"
                     "不要解释，不要写成预言，不要强行出现用户，也不要制造重大健康事件。")

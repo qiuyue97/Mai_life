@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from . import worldbook
+
 _ALLOWED={"meal","work","study","travel","leisure","sleep","nap","rest"}
 
 # 身份信号只从人格串里读已经写明的内容，不替用户假定身份；不同人的麦麦身份不同。
@@ -248,14 +250,19 @@ class ScheduleService:
         picked=random.sample(ideas,min(3,len(ideas))) if ideas else []
         if picked:
             variety=(variety+"\n今天可以考虑的活动灵感（自由选用，不要硬塞）："+ "、".join(picked)).strip()
+        book=worldbook.schedule_block(getattr(self.store,"data_dir",""))
+        book_text=(f"世界书（{self.bot_name}生活的世界。地点、店铺、邻居和活动尽量从这里取，可以在设定范围内自然发挥，不要每天都是同一件事）：\n{book}\n下面要求里学生、职场的例子不适用，工作段写世界书里的看店之类，学习段写夜校课程之类，location 用世界书里的地点。\n") if book else ""
+        identity=("按世界书里写的身份、住处和日常来安排，不套学生、上班族的模式。" if book
+                  else self._identity_note(personality))
         prompt=(f"为虚拟网友{self.bot_name}生成{day}的生活框架。{'周末' if weekend else '工作日'}，天气背景：{weather_text}。\n"
                 f"人格：{personality or '自然、独立、有自己的生活'}\n"
-                f"身份落实：{self._identity_note(personality)}\n"
+                f"身份落实：{identity}\n"
                 f"{self._state_summary(state)}\n"
                 f"参考节奏（只参考时间结构和比例，禁止照抄里面的描述）："
                 f"{json.dumps(self._template().get('weekend' if weekend else 'workday',[]),ensure_ascii=False)}\n"
                 f"匿名生活记忆：{json.dumps(memory_context or {},ensure_ascii=False)}。日期提示不含用户身份，不得猜测是谁。"
                 f"{variety}\n"
+                f"{book_text}"
                 "要求：\n"
                 "1) 每个节点的 summary 必须具体到'正在做什么'（例如'上午去教学楼听两门课''给连载小说写第三章''玩两把新出的游戏'），"
                 "禁止'处理自己的事情''放松、看东西和随便逛逛'这类空泛描述；\n"
@@ -293,8 +300,13 @@ class ScheduleService:
             expires=datetime.combine(now.date(),datetime.min.time(),tzinfo=now.tzinfo)+timedelta(minutes=node["end_minute"])
             fallback={"scene":node["summary"],"state_deltas":self._state_deltas(node),
                       "opportunities":([{"topic":node["summary"],"motive":"想自然分享一点正在经历的生活","weight":node["shareability"],"privacy":"normal"}] if node["shareability"]>=0.35 else [])}
+            scene_book=worldbook.matched_block(getattr(self.store,"data_dir",""),
+                                              f"{node.get('summary','')} {node.get('location','')}",with_always=True)
+            scene_book=("世界书相关设定（场景里的地点、人物照这个写；身份以世界书为准，下面学生、职场的说法不适用）：\n"
+                        +scene_book+"\n") if scene_book else ""
             prompt=(f"把生活框架细化为具体但克制的场景。框架：{json.dumps(node,ensure_ascii=False)}\n"
                     f"人格：{self._personality or '自然、独立、有自己的生活'}\n"
+                    f"{scene_book}"
                     f"当前精力{state.get('energy')}、饥饿{state.get('hunger')}、天气{weather_text}。\n"
                     "返回JSON对象：scene字符串和opportunities数组。机会字段topic,motive,weight。"
                     "场景必须与人格身份一致（学生写在校场景，职场写工位场景），不要凭空制造重大事件，不要强行想用户。")

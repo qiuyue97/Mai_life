@@ -9,6 +9,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from . import worldbook
+
 # 离线补日记：向前寻找最早有框架日最多查 14 天，补算窗口上限 7 天。
 _BACKFILL_SCAN_DAYS=14
 _BACKFILL_MAX_DAYS=7
@@ -200,11 +202,14 @@ class MemoryService:
             "今天按自己的节奏过完了一天。"+("大致做了"+"、".join(summaries[:5])+"。" if summaries else "没有留下特别具体的安排。")+
             (f"和熟悉的网友有过一些交流，共收到{total_interactions}条互动。" if total_interactions else "今天的聊天不多，安静也有安静的感觉。")
         ),"mood_summary":"平稳地收下了这一天"}
+        diary_book=worldbook.matched_block(getattr(self.store,"data_dir",""),
+                                          " ".join(f"{x.get('summary') or ''} {x.get('location') or ''} {x.get('scene') or ''}" for x in life))
         result=fallback
         if self.llm.task_available("diary"):
             prompt=(
                 f"根据以下{self.bot_name}自己的生活数据写一篇第一人称抽象日记。不得补写聊天原句、用户姓名、群名、账号、密码或朋友隐私。"
                 "互动数据只有数量，不能猜测聊天内容。返回JSON：title、content、mood_summary。\n"+serialized
+                +(("\n世界书相关设定（日记里的地名、人物照这个写）：\n"+diary_book) if diary_book else "")
             )
             raw=await self.llm.generate_json(
                 prompt,"你写克制、自然的私人日记，只输出合法JSON。",fallback,max_tokens=0,
