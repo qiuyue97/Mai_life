@@ -11,7 +11,7 @@ from typing import Any
 
 FILE_NAME = "worldbook.md"
 SCHEDULE_LIMIT = 3500
-MATCHED_LIMIT = 1600
+MATCHED_LIMIT = 2000
 INTEREST_PICKS = 3
 
 _HEADER = re.compile(r"^##\s+(.+?)\s*$")
@@ -73,6 +73,12 @@ def _taboos(book: dict[str, Any]) -> str:
     return ("世界书禁区：" + "；".join(items)) if items else ""
 
 
+def _join(parts: list[str], taboos: str, limit: int) -> str:
+    """超长时截断正文，禁区始终完整保留在最后。"""
+    body = "\n".join(parts)[:max(0, limit - len(taboos) - 1)]
+    return "\n".join(x for x in (body, taboos) if x)
+
+
 def schedule_block(data_dir: Any) -> str:
     """日程生成用：常驻 + 全部条目 + 随机兴趣 + 长期线 + 禁区。"""
     book = load(data_dir)
@@ -85,10 +91,7 @@ def schedule_block(data_dir: Any) -> str:
         parts.append("今天可以优先考虑的兴趣（挑一两项安排进休闲段，不必全用）：" + "、".join(picked))
     if book.get("threads"):
         parts.append("长期在做的事（可以安排其中一件今天推进一点，写清推进到哪一步）：" + "；".join(book["threads"]))
-    taboos = _taboos(book)
-    if taboos:
-        parts.append(taboos)
-    return "\n".join(parts)[:SCHEDULE_LIMIT]
+    return _join(parts, _taboos(book), SCHEDULE_LIMIT)
 
 
 def matched_block(data_dir: Any, text: str, *, with_always: bool = False) -> str:
@@ -99,10 +102,7 @@ def matched_block(data_dir: Any, text: str, *, with_always: bool = False) -> str
     source = str(text or "")
     hits = [item for item in book["entries"] if any(k in source for k in item["keywords"])]
     parts = [_section(item["title"], item["body"]) for item in (book["always"] if with_always else []) + hits]
-    taboos = _taboos(book)
-    if taboos:
-        parts.append(taboos)
-    return "\n".join(parts)[:MATCHED_LIMIT]
+    return _join(parts, _taboos(book), MATCHED_LIMIT)
 
 
 def has_book(data_dir: Any) -> bool:

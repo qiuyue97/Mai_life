@@ -233,7 +233,7 @@ class LifeStateEngine:
             except Exception:pass
             dream_book=worldbook.matched_block(getattr(self.store,"data_dir",""),
                                               str(state.get("current_activity") or "")+group_context,with_always=True)
-            dream_book=("梦里可以带一点世界书里的奇幻色彩。世界书相关设定：\n"+dream_book+"\n") if dream_book else ""
+            dream_book=("梦里的人和地方可以来自世界书。世界书相关设定：\n"+dream_book+"\n") if dream_book else ""
             prompt=(f"{self.bot_name}刚结束约{hours:.1f}小时睡眠。当前心情值{state.get('mood_valence',0):.2f}，"
                     f"最近生活场景是{state.get('current_activity','普通日常')}。"
                     f"{group_context}"

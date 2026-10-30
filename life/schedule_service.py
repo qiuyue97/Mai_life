@@ -251,7 +251,7 @@ class ScheduleService:
         if picked:
             variety=(variety+"\n今天可以考虑的活动灵感（自由选用，不要硬塞）："+ "、".join(picked)).strip()
         book=worldbook.schedule_block(getattr(self.store,"data_dir",""))
-        book_text=(f"世界书（{self.bot_name}生活的世界。地点、店铺、邻居和活动尽量从这里取，可以在设定范围内自然发挥，不要每天都是同一件事）：\n{book}\n下面要求里学生、职场的例子不适用，工作段写世界书里的看店之类，学习段写夜校课程之类，location 用世界书里的地点。\n") if book else ""
+        book_text=(f"世界书（{self.bot_name}生活的世界。地点、店铺、邻居和活动尽量从这里取，可以在设定范围内自然发挥，不要每天都是同一件事）：\n{book}\n下面要求里学生、职场的例子不适用：工作段按世界书写成当天具体接的活，location 尽量用世界书里或现实中真实存在的地点。\n") if book else ""
         identity=("按世界书里写的身份、住处和日常来安排，不套学生、上班族的模式。" if book
                   else self._identity_note(personality))
         prompt=(f"为虚拟网友{self.bot_name}生成{day}的生活框架。{'周末' if weekend else '工作日'}，天气背景：{weather_text}。\n"
