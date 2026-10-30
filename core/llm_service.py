@@ -143,6 +143,11 @@ class LLMService:
         except Exception as exc:
             self.ctx.logger.debug(f"[MaiLife] Token 统计写入失败: {exc}")
 
+    # [patch] 没人在等的后台任务：放宽到 300 秒（服务商超时 60 秒 × 重试 + 切保底模型）
+    _SLOW_TASK_KINDS = frozenset({"schedule","scene_detail","dream","diary","news","search","relevance",
+                                  "date_analysis","relay_summary","creation_outline","creation_body",
+                                  "creation_review","reading_annotation"})
+
     async def generate(self, prompt: str | list[dict[str, Any]], system: str = "", max_tokens: int = 0,
                        temperature: float = 0.5, *, task_kind: str = "reasoning",
                        request_type: str = "generic") -> str:
@@ -163,8 +168,9 @@ class LLMService:
                 messages=prompt if has_system else [{"role":"system","content":system},*prompt]
         started=time.perf_counter(); result:dict[str,Any]={}
         try:
-            result=await self.ctx.llm.generate(**self._generate_call(task,messages,temperature,
-                                                                     self._output_limit(max_tokens)))
+            call=self._generate_call(task,messages,temperature,self._output_limit(max_tokens))
+            if task_kind in self._SLOW_TASK_KINDS:call["rpc_timeout_ms"]=300000
+            result=await self.ctx.llm.generate(**call)
             success=bool(isinstance(result,dict) and result.get("success") and result.get("response"))
             failure_reason=str(result.get("error") or "empty_response") if isinstance(result,dict) else "invalid_result"
             if not success and isinstance(result,dict) and result.get("reasoning"):
